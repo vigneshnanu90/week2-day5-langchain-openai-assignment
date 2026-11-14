@@ -1,3 +1,5 @@
+import time
+
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 
@@ -12,5 +14,9 @@ prompt = (
     "no introduction and no closing remarks."
 )
 
-reply = llm.invoke(prompt)
-print(reply.content)
+for chunk in llm.stream(prompt):
+    for char in chunk.content:
+        print(char, end="", flush=True)
+        time.sleep(0.02)
+
+print()

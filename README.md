@@ -2,13 +2,14 @@
 
 Week 2 · Day 5 assignment (Social Eagle: learn. build. operate)
 
-A small Python script that uses LangChain's `ChatOpenAI` to ask a model for 5 healthy breakfast ideas and prints them as a clean numbered list.
+A small Python script that uses LangChain's `ChatOpenAI` to ask a model for 5 healthy breakfast ideas and prints them as a numbered list, streamed character by character like a chat typing its answer.
 
 ## What it does
 
 - Sends one prompt to `gpt-4o-mini` through LangChain's `ChatOpenAI`
 - Asks for exactly 5 healthy breakfast ideas, numbered, one line each, no preamble
-- Prints only the text of the reply (`reply.content`), not the whole message object
+- Streams the reply with `llm.stream()` and prints only the text (`chunk.content`), not the whole message object
+- Adds a small delay per character for a typing effect
 - Loads the OpenAI API key from a `.env` file, so the key is never hard-coded
 
 ## Project structure
@@ -70,15 +71,19 @@ $ python breakfast.py
 5. <fifth idea>
 ```
 
+The list appears gradually, as if the model were typing it.
+
 ## The code
 
 ```python
+import time
+
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 
 load_dotenv()  # reads .env and sets OPENAI_API_KEY in the environment
 
-llm = ChatOpenAI(model="gpt-4o-mini")
+llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
 prompt = (
     "Give me exactly 5 healthy breakfast ideas. "
@@ -87,14 +92,25 @@ prompt = (
     "no introduction and no closing remarks."
 )
 
-reply = llm.invoke(prompt)
-print(reply.content)
+# stream() yields the reply in small chunks as the model generates it
+for chunk in llm.stream(prompt):
+    for char in chunk.content:
+        print(char, end="", flush=True)
+        time.sleep(0.02)  # delay per character; adjust for faster/slower typing
+
+print()  # final newline
 ```
+
+How the streaming works:
+
+- `llm.stream(prompt)` returns chunks of the reply as they are generated, instead of waiting for the full answer like `invoke()`.
+- `end=""` keeps the text on one line, and `flush=True` shows each character immediately.
+- `time.sleep(0.02)` slows the output slightly for a visible typing effect. Remove the inner loop and the sleep to print each chunk as it arrives.
 
 ## Notes and learnings
 
 **`invoke()` returns a message object, not a string.**
-Printing `reply` directly shows an `AIMessage` with `content`, `response_metadata` and `usage_metadata`. The part we want is `reply.content`, so the script prints that.
+Printing the result of `llm.invoke(prompt)` directly shows an `AIMessage` with `content`, `response_metadata` and `usage_metadata`. The part we want is `.content`. With `stream()`, each chunk is a message piece and its text is also in `chunk.content`.
 
 **Do the two runs match?**
 <!-- Fill this in after running the script twice -->
@@ -136,3 +152,4 @@ Run `git status` before pushing and confirm `.env` is not listed.
 
 - **Authentication error:** check that `.env` is in the folder you run the command from, the variable is spelled exactly `OPENAI_API_KEY`, and there are no quotes or extra spaces.
 - **`ModuleNotFoundError`:** make sure the virtual environment is activated and the packages are installed.
+- **`AttributeError: 'builtin_function_or_method' object has no attribute 'sleep'`:** `time` has been overwritten by `from time import time`. Remove that line and use `import time`.
